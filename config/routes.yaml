@@ -7,3 +7,5 @@
 # property.index:
     #path: /property
     #controller: App\Controller\PropertyController
+logout:
+    path: /logout

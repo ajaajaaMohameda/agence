@@ -4,10 +4,20 @@ namespace App\Entity;
 
 use App\Repository\PropertyRepository;
 use DateTime;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 use Cocur\Slugify\Slugify;
+use Symfony\Component\Validator\Constraints as Assert;
+use Vich\UploaderBundle\Mapping\Annotation as Vich;
+use Symfony\Component\HttpFoundation\File\File;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
+
 /**
  * @ORM\Entity(repositoryClass=PropertyRepository::class)
+ * @Vich\Uploadable
+ * @UniqueEntity("title")
  */
 class Property
 {
@@ -23,17 +33,44 @@ class Property
     private $id;
 
     /**
+     * Undocumented variable
+     *
+     * @var string|null
+     * @ORM\Column(type="string", length=255)
+     */
+    private $filename;
+    /**
+     * Undocumented variable
+     *
+     * @var File|null
+     * @Assert\Image(
+     *  mimeTypes="image/jpeg"
+     * )
+     * @Vich\UploadableField(mapping="property_image", fileNameProperty="filename")
+     */
+    private $imageFile;
+
+    /**
      * @ORM\Column(type="string", length=255)
      */
     private $title;
 
     /**
+     * @Assert\Length(
+     *  min=1,
+     * max= 5
+     * )
      * @ORM\Column(type="text", nullable=true)
      */
     private $description;
 
     /**
      * @ORM\Column(type="integer")
+     * @Assert\Range(
+     *      min = 10,
+     *      max = 400,
+     *      notInRangeMessage = "You must be between {{ min }}cm and {{ max }}cm tall to enter",
+     * )
      */
     private $surface;
 
@@ -84,12 +121,25 @@ class Property
 
     /**
      * @ORM\Column(type="string", length=255)
+     * @Assert\Regex("/^[0-9]{5}/")
+     *
      */
     private $postal_code;
+
+    /**
+     * @ORM\ManyToMany(targetEntity=Option::class, inversedBy="properties")
+     */
+    private $options;
+
+    /**
+     * @ORM\Column(type="datetime")
+     */
+    private $updated_at;
 
     public function __construct()
     {
         $this->created_at = new DateTime();
+        $this->options = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -267,4 +317,81 @@ class Property
 
         return $this;
     }
+
+    /**
+     * @return Collection|Option[]
+     */
+    public function getOptions(): Collection
+    {
+        return $this->options;
+    }
+
+    public function addOption(Option $option): self
+    {
+        if (!$this->options->contains($option)) {
+            $this->options[] = $option;
+            $option->addProperty($this);
+        }
+
+        return $this;
+    }
+
+    public function removeOption(Option $option): self
+    {
+        if ($this->options->removeElement($option)) {
+            $option->removeProperty($this);
+        }
+
+        return $this;
+    }
+
+    /**
+     * Undocumented function
+     *
+     * @return string|null
+     */
+    public function getFilename(): ?string
+    {
+        return $this->filename;
+    }
+
+    /**
+     * Undocumented function
+     *
+     * @param string|null $filename
+     * @return self
+     */
+    public function setFilename(?string $filename): self
+    {
+        $this->filename = $filename;
+
+        return $this;
+    }
+
+    public function getImageFile(): ?File
+    {
+        return $this->imageFile;
+    }
+
+    public function setImageFile(?File $imageFile): self
+    {
+        $this->imageFile = $imageFile;
+        if ($this->imageFile instanceof UploadedFile) {
+            $this->updated_at = new \DateTime('now');
+        }
+        return $this;
+    }
+
+    public function getUpdatedAt(): ?\DateTimeInterface
+    {
+        return $this->updated_at;
+    }
+
+    public function setUpdatedAt(\DateTimeInterface $updated_at): self
+    {
+        $this->updated_at = $updated_at;
+
+        return $this;
+    }
+
 }
